@@ -1,0 +1,92 @@
+{mapping, "emqx.kafka.bridge.broker", "emqx_kafka_bridge.broker", [
+  {datatype, string},
+  {default, "10.16.8.125:9092"}
+]}.
+
+{mapping, "emqx.kafka.bridge.partition", "emqx_kafka_bridge.partition", [
+  {datatype, integer},
+  {default, 1}
+]}.
+
+{mapping, "emqx.kafka.bridge.client.string", "emqx_kafka_bridge.client", [
+  {datatype, string}
+]}.
+
+{mapping, "emqx.kafka.bridge.client.flag", "emqx_kafka_bridge.client", [
+  {datatype, string}
+]}.
+
+{mapping, "emqx.kafka.bridge.client.integer", "emqx_kafka_bridge.client", [
+  {datatype, string}
+]}.
+
+{mapping, "emqx.kafka.bridge.topic", "emqx_kafka_bridge.topic", [
+  {datatype, string}
+]}.
+
+{mapping, "emqx.kafka.bridge.regex", "emqx_kafka_bridge.regex", [
+  {datatype, string}
+]}.
+
+{mapping, "emqx.kafka.bridge.hook.client.connected.topic", "emqx_kafka_bridge.connected", [
+  {datatype, string},
+  {default, "mqtt_client_connected"}
+]}.
+
+{mapping, "emqx.kafka.bridge.hook.client.disconnected.topic", "emqx_kafka_bridge.disconnected", [
+  {datatype, string},
+  {default, "mqtt_client_disconnected"}
+]}.
+
+{mapping, "emqx.kafka.bridge.hook.client.subscribed.topic", "emqx_kafka_bridge.subscribed", [
+  {datatype, string},
+  {default, "mqtt_client_subscribed"}
+]}.
+
+{translation, "emqx_kafka_bridge.broker", fun(Conf) ->
+  Broker = cuttlefish:conf_get("emqx.kafka.bridge.broker", Conf),
+  BrokerList = string:split(Broker, ",", all),
+        lists:map(fun(X)->
+          [Host, Port] = string:tokens(X, ":"),
+          {string:trim(Host), list_to_integer(string:trim(Port))}
+        end, BrokerList)
+end}.
+
+{translation, "emqx_kafka_bridge.client", fun(Conf) ->
+  Config = cuttlefish_variable:filter_by_prefix("emqx.kafka.bridge.client", Conf),
+  ClientConfig = lists:map(fun(X)->
+       {Match, Options} = X,
+       Type = lists:last(Match),
+       Items = string:split(Options, ",", all),
+          case Type of
+             "flag" -> lists:map(fun(Item)->
+                       [Option, Value] = string:tokens(Item, ":"),
+                       {list_to_atom(string:trim(Option)), list_to_atom(string:trim(Value))}
+                       end, Items);
+             "integer" -> lists:map(fun(Item)->
+                       [Option, Value] = string:tokens(Item, ":"),
+                       {list_to_atom(string:trim(Option)), list_to_integer(string:trim(Value))}
+                       end, Items);
+             "string" ->  lists:map(fun(Item)->
+                       [Option, Value] = string:tokens(Item, ":"),
+                       {list_to_atom(string:trim(Option)), string:trim(Value)}
+                       end, Items)
+          end
+  end, Config),
+  lists: append(ClientConfig)
+end}.
+
+{translation, "emqx_kafka_bridge.regex", fun(Conf) ->
+  Re = cuttlefish:conf_get("emqx.kafka.bridge.regex", Conf),
+  {ok, MP} = re:compile(string:trim(Re)), 
+  MP
+end}.
+
+{translation, "emqx_kafka_bridge.topic", fun(Conf) ->
+  Config = cuttlefish:conf_get("emqx.kafka.bridge.topic", Conf),
+  ConfigList = string:split(Config, ",", all),
+  lists:map(fun(X)->
+     [EmqTopic, KafkaTopic] = string:tokens(X, ":"),
+     {string:trim(EmqTopic), list_to_binary(string:trim(KafkaTopic))}
+  end, ConfigList)
+end}.
